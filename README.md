@@ -36,3 +36,6 @@ Testujemy podejścia znane z zajęć i w granicach możliwości co do zasobów o
 * [Konkurs PLAsTiCC na Kaggle (ze zbiorem danych)](https://www.kaggle.com/competitions/PLAsTiCC-2018/data)
 * [Opis zwycięskiego rozwiązania z konkursu](https://www.kaggle.com/competitions/PLAsTiCC-2018/writeups/kyle-boone-overview-of-1st-place-solution)
 * [Notatniki udostępnione przez autorów zbioru](https://github.com/lsstdesc/plasticc-kit)
+
+### Inne
+* [Przykładowa struktura projektu ML](https://cookiecutter-data-science.drivendata.org/)
