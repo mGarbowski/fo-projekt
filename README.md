@@ -32,6 +32,9 @@ Testujemy podejścia znane z zajęć i w granicach możliwości co do zasobów o
   * odchylenie
   * jakieś inne, może maksymalna częstotliwość z FFT
 
+## Instrukcja uruchomienia
+TODO
+
 ## Źródła
 * [Konkurs PLAsTiCC na Kaggle (ze zbiorem danych)](https://www.kaggle.com/competitions/PLAsTiCC-2018/data)
 * [Opis zwycięskiego rozwiązania z konkursu](https://www.kaggle.com/competitions/PLAsTiCC-2018/writeups/kyle-boone-overview-of-1st-place-solution)
