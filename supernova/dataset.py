@@ -2,14 +2,17 @@
 
 Include both raw and processed data.
 """
+
 from typing import Any
 import pickle
 
 import numpy as np
 import pandas as pd
-
+import torch
+from torch.utils.data import Dataset
 
 DatasetItem = dict[str, Any]
+
 
 # TODO include new features
 # TODO drop unnecessary features
@@ -27,12 +30,12 @@ class DatasetProcessor:
         self.output_path = output_path
 
     def process(self) -> list[DatasetItem]:
-        """Process the raw data into """
+        """Process the raw data into"""
         self._load_raw_data()
         self._extract_labels_from_metadata()
+        self._remap_labels()
 
         return [self._get_single_item(obj_id) for obj_id in self._get_all_object_ids()]
-
 
     def save_to_file(self, data: list[DatasetItem]):
         """Save processed data to output file."""
@@ -59,6 +62,14 @@ class DatasetProcessor:
         self.labels = self.metadata[["target"]]
         self.metadata = self.metadata.drop(columns=["target"])
 
+    def _remap_labels(self):
+        """Original labels are random ints, remap to ints from range [0, num_classes)."""
+
+        unique_labels = self.labels["target"].unique()
+        unique_labels.sort()
+        label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+        self.labels["target"] = self.labels["target"].map(label_mapping)
+
     def _get_all_object_ids(self) -> np.ndarray:
         """Get all unique object ids from the lightcurves data."""
 
@@ -71,7 +82,7 @@ class DatasetProcessor:
         seq = lightcurves[
             (lightcurves["object_id"] == object_id)
             & (lightcurves["passband"] == passband)
-            ].copy()
+        ].copy()
         seq.sort_values(by="mjd", inplace=True)
         seq = seq[["mjd", "flux", "flux_err", "detected"]]
         return seq.values
@@ -86,7 +97,6 @@ class DatasetProcessor:
 
         return self.labels.loc[object_id].iloc[0]
 
-
     def _get_single_item(self, object_id: int) -> DatasetItem:
         """Create a single dataset item for a given object id."""
 
@@ -97,5 +107,31 @@ class DatasetProcessor:
             "sequences": {
                 passband: self._get_sequence(object_id, passband)
                 for passband in range(6)
-            }
+            },
+        }
+
+
+class SupernovaDataset(Dataset):
+    """Torch Dataset for Supernova data."""
+
+    def __init__(self, dataset_path: str):
+        self._data = DatasetProcessor.load_from_file(dataset_path)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __getitem__(self, idx: int) -> DatasetItem:
+        item = self._data[idx]
+
+        # Convert each band sequence to tensor
+        sequences = {
+            band_id: torch.tensor(seq, dtype=torch.float32)
+            for band_id, seq in item["sequences"].items()
+        }
+
+        return {
+            "object_id": int(item["object_id"]),
+            "label": torch.tensor(item["label"], dtype=torch.long),
+            "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
+            "sequences": sequences,
         }
