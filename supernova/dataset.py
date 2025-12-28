@@ -11,6 +11,8 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+N_BANDS = 6
+
 DatasetItem = dict[str, Any]
 
 
@@ -67,7 +69,9 @@ class DatasetProcessor:
 
         unique_labels = self.labels["target"].unique()
         unique_labels.sort()
-        label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+        label_mapping = {
+            old_label: new_label for new_label, old_label in enumerate(unique_labels)
+        }
         self.labels["target"] = self.labels["target"].map(label_mapping)
 
     def _get_all_object_ids(self) -> np.ndarray:
@@ -106,7 +110,7 @@ class DatasetProcessor:
             "metadata": self._get_metadata(object_id),
             "sequences": {
                 passband: self._get_sequence(object_id, passband)
-                for passband in range(6)
+                for passband in range(N_BANDS)
             },
         }
 
