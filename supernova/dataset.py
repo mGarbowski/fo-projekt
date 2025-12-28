@@ -3,7 +3,7 @@
 Include both raw and processed data.
 """
 
-from typing import Any
+from typing import Any, Literal
 import pickle
 
 import numpy as np
@@ -179,12 +179,15 @@ def supernova_collate_fn(batch):
     }
 
 
+SplitName = Literal["train", "val", "test"]
+
+
 def get_dataset_split(
     dataset_path: str,
     val_split: float,
     test_split: float,
     random_seed: int = 42,
-) -> dict[str, Dataset]:
+) -> dict[SplitName, Dataset]:
     assert 0 < val_split < 1
     assert 0 < test_split < 1
     assert val_split + test_split < 1
@@ -214,7 +217,7 @@ def get_data_loaders(
     datasets: dict[str, Dataset],
     batch_size: int,
     num_workers: int = 4,
-) -> dict[str, DataLoader]:
+) -> dict[SplitName, DataLoader]:
     train_loader = DataLoader(
         datasets["train"],
         batch_size=batch_size,
