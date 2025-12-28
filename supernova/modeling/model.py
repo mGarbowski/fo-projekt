@@ -4,6 +4,8 @@ import torch
 from torch import nn
 from dataclasses import dataclass
 
+from supernova.dataset import N_BANDS
+
 
 @dataclass
 class SupernovaClassifierV1Config:
@@ -42,7 +44,7 @@ class SupernovaClassifierV1(nn.Module):
         self.config = config
 
         classifier_input_size = (
-            config.metadata_output_size + 6 * config.lightcurve_hidden_size
+            config.metadata_output_size + N_BANDS * config.lightcurve_hidden_size
         )
 
         self.metadata_mlp = MLP(
@@ -61,7 +63,7 @@ class SupernovaClassifierV1(nn.Module):
                     batch_first=True,
                     dropout=config.dropout,
                 )
-                for _ in range(6)
+                for _ in range(N_BANDS)
             ]
         )
         self.classifier_mlp = MLP(
@@ -88,7 +90,7 @@ class SupernovaClassifierV1(nn.Module):
         # Process each band's lightcurve through corresponding LSTM
         lightcurve_features = [
             self._process_lightcurve(band_id, sequences[band_id], lengths[band_id])
-            for band_id in range(6)
+            for band_id in range(N_BANDS)
         ]
 
         # Concatenate all features
