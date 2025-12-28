@@ -9,6 +9,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import torch
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 N_BANDS = 6
@@ -149,3 +150,30 @@ class SupernovaDataset(Dataset):
             "sequences": sequences,
             "lengths": lengths,
         }
+
+
+def supernova_collate_fn(batch):
+    """Collate function for SupernovaDataset to prepare data for SupernovaClassifierV1."""
+    metadata = torch.stack([item["metadata"] for item in batch])
+    labels = torch.stack([item["label"] for item in batch])
+
+    lengths = {
+        band_id: torch.stack([item["lengths"][band_id] for item in batch])
+        for band_id in range(6)
+    }
+
+    band_sequences = {
+        band_id: pad_sequence(
+            [item["sequences"][band_id] for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
+        for band_id in range(6)
+    }
+
+    return {
+        "metadata": metadata,
+        "sequences": band_sequences,
+        "lengths": lengths,
+        "labels": labels,
+    }
