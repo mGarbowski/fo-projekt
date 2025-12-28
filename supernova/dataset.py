@@ -9,7 +9,10 @@ import pickle
 import numpy as np
 import pandas as pd
 import torch
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
+
+N_BANDS = 6
 
 DatasetItem = dict[str, Any]
 
@@ -67,7 +70,9 @@ class DatasetProcessor:
 
         unique_labels = self.labels["target"].unique()
         unique_labels.sort()
-        label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+        label_mapping = {
+            old_label: new_label for new_label, old_label in enumerate(unique_labels)
+        }
         self.labels["target"] = self.labels["target"].map(label_mapping)
 
     def _get_all_object_ids(self) -> np.ndarray:
@@ -100,14 +105,19 @@ class DatasetProcessor:
     def _get_single_item(self, object_id: int) -> DatasetItem:
         """Create a single dataset item for a given object id."""
 
+        sequences = {}
+        lengths = {}
+        for passband in range(N_BANDS):
+            seq = self._get_sequence(object_id, passband)
+            sequences[passband] = seq
+            lengths[passband] = len(seq)
+
         return {
             "object_id": object_id,
             "label": self._get_label(object_id),
             "metadata": self._get_metadata(object_id),
-            "sequences": {
-                passband: self._get_sequence(object_id, passband)
-                for passband in range(6)
-            },
+            "sequences": sequences,
+            "lengths": lengths,
         }
 
 
@@ -123,10 +133,14 @@ class SupernovaDataset(Dataset):
     def __getitem__(self, idx: int) -> DatasetItem:
         item = self._data[idx]
 
-        # Convert each band sequence to tensor
         sequences = {
             band_id: torch.tensor(seq, dtype=torch.float32)
             for band_id, seq in item["sequences"].items()
+        }
+
+        lengths = {
+            band_id: torch.tensor(length, dtype=torch.long)
+            for band_id, length in item["lengths"].items()
         }
 
         return {
@@ -134,4 +148,32 @@ class SupernovaDataset(Dataset):
             "label": torch.tensor(item["label"], dtype=torch.long),
             "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
             "sequences": sequences,
+            "lengths": lengths,
         }
+
+
+def supernova_collate_fn(batch):
+    """Collate function for SupernovaDataset to prepare data for SupernovaClassifierV1."""
+    metadata = torch.stack([item["metadata"] for item in batch])
+    labels = torch.stack([item["label"] for item in batch])
+
+    lengths = {
+        band_id: torch.stack([item["lengths"][band_id] for item in batch])
+        for band_id in range(6)
+    }
+
+    band_sequences = {
+        band_id: pad_sequence(
+            [item["sequences"][band_id] for item in batch],
+            batch_first=True,
+            padding_value=0,
+        )
+        for band_id in range(6)
+    }
+
+    return {
+        "metadata": metadata,
+        "sequences": band_sequences,
+        "lengths": lengths,
+        "labels": labels,
+    }
