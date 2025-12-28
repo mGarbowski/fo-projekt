@@ -159,7 +159,7 @@ def supernova_collate_fn(batch):
 
     lengths = {
         band_id: torch.stack([item["lengths"][band_id] for item in batch])
-        for band_id in range(6)
+        for band_id in range(N_BANDS)
     }
 
     band_sequences = {
@@ -168,7 +168,7 @@ def supernova_collate_fn(batch):
             batch_first=True,
             padding_value=0,
         )
-        for band_id in range(6)
+        for band_id in range(N_BANDS)
     }
 
     return {
