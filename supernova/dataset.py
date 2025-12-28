@@ -104,14 +104,19 @@ class DatasetProcessor:
     def _get_single_item(self, object_id: int) -> DatasetItem:
         """Create a single dataset item for a given object id."""
 
+        sequences = {}
+        lengths = {}
+        for passband in range(N_BANDS):
+            seq = self._get_sequence(object_id, passband)
+            sequences[passband] = seq
+            lengths[passband] = len(seq)
+
         return {
             "object_id": object_id,
             "label": self._get_label(object_id),
             "metadata": self._get_metadata(object_id),
-            "sequences": {
-                passband: self._get_sequence(object_id, passband)
-                for passband in range(N_BANDS)
-            },
+            "sequences": sequences,
+            "lengths": lengths,
         }
 
 
@@ -127,10 +132,14 @@ class SupernovaDataset(Dataset):
     def __getitem__(self, idx: int) -> DatasetItem:
         item = self._data[idx]
 
-        # Convert each band sequence to tensor
         sequences = {
             band_id: torch.tensor(seq, dtype=torch.float32)
             for band_id, seq in item["sequences"].items()
+        }
+
+        lengths = {
+            band_id: torch.tensor(length, dtype=torch.long)
+            for band_id, length in item["lengths"].items()
         }
 
         return {
@@ -138,4 +147,5 @@ class SupernovaDataset(Dataset):
             "label": torch.tensor(item["label"], dtype=torch.long),
             "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
             "sequences": sequences,
+            "lengths": lengths,
         }
