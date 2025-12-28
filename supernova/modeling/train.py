@@ -19,21 +19,13 @@ class SupernovaTraining(LightningModule):
         return self.model(metadata, sequences, lengths)
 
     def training_step(self, batch, batch_idx):
-        metadata = batch["metadata"]
-        sequences = batch["sequences"]
-        lengths = batch["lengths"]
-        labels = batch["labels"]
-
-        logits = self(metadata, sequences, lengths)
-        loss = self.criterion(logits, labels)
-        acc = (logits.argmax(dim=1) == labels).float().mean()
-
-        self.log("train_loss", loss, prog_bar=True)
-        self.log("train_acc", acc, prog_bar=True)
-
-        return loss
+        return self._step(batch, "train")
 
     def validation_step(self, batch, batch_idx):
+        return self._step(batch, "val")
+
+    def _step(self, batch, step_name: str):
+        """Common step logic for training and validation steps."""
         metadata = batch["metadata"]
         sequences = batch["sequences"]
         lengths = batch["lengths"]
@@ -43,8 +35,8 @@ class SupernovaTraining(LightningModule):
         loss = self.criterion(logits, labels)
         acc = (logits.argmax(dim=1) == labels).float().mean()
 
-        self.log("val_loss", loss, prog_bar=True)
-        self.log("val_acc", acc, prog_bar=True)
+        self.log(f"{step_name}_loss", loss, prog_bar=True)
+        self.log(f"{step_name}_acc", acc, prog_bar=True)
 
         return loss
 
@@ -61,7 +53,9 @@ def get_trainer(epochs: int, checkpoint_dir: str, early_stop_patience: int) -> T
         mode="max",
     )
 
-    early_stop_callback = EarlyStopping(monitor="val_loss", patience=early_stop_patience, mode="min")
+    early_stop_callback = EarlyStopping(
+        monitor="val_loss", patience=early_stop_patience, mode="min"
+    )
 
     trainer = Trainer(
         max_epochs=epochs,
