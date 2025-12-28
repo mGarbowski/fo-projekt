@@ -3,8 +3,8 @@
 Include both raw and processed data.
 """
 
-from typing import Any
 import pickle
+from typing import Any, TypedDict, final
 
 import numpy as np
 import pandas as pd
@@ -18,11 +18,19 @@ DatasetItem = dict[str, Any]
 # TODO drop unnecessary features
 # TODO normalize
 # TODO handle missing data
+@final
 class DatasetProcessor:
     """Process the raw csv files into a format suitable for loading into a torch Dataset.
 
     Groups data by object id, groups sequence entries by passband, sorted by time.
     """
+
+    metadata_path: str
+    lightcurves_path: str
+    output_path: str
+    metadata: pd.DataFrame
+    labels: pd.DataFrame
+    lightcurves: pd.DataFrame
 
     def __init__(self, metadata_path: str, lightcurves_path: str, output_path: str):
         self.metadata_path = metadata_path
@@ -67,7 +75,9 @@ class DatasetProcessor:
 
         unique_labels = self.labels["target"].unique()
         unique_labels.sort()
-        label_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_labels)}
+        label_mapping = {
+            old_label: new_label for new_label, old_label in enumerate(unique_labels)
+        }
         self.labels["target"] = self.labels["target"].map(label_mapping)
 
     def _get_all_object_ids(self) -> np.ndarray:
@@ -111,7 +121,15 @@ class DatasetProcessor:
         }
 
 
-class SupernovaDataset(Dataset):
+class SupernovaDatasetEntry(TypedDict):
+    object_id: int
+    label: torch.Tensor
+    metadata: torch.Tensor
+    sequences: dict[int, torch.Tensor]
+
+
+@final
+class SupernovaDataset(Dataset[SupernovaDatasetEntry]):
     """Torch Dataset for Supernova data."""
 
     def __init__(self, dataset_path: str):
@@ -120,7 +138,7 @@ class SupernovaDataset(Dataset):
     def __len__(self) -> int:
         return len(self._data)
 
-    def __getitem__(self, idx: int) -> DatasetItem:
+    def __getitem__(self, idx: int):
         item = self._data[idx]
 
         # Convert each band sequence to tensor
@@ -129,9 +147,11 @@ class SupernovaDataset(Dataset):
             for band_id, seq in item["sequences"].items()
         }
 
-        return {
-            "object_id": int(item["object_id"]),
-            "label": torch.tensor(item["label"], dtype=torch.long),
-            "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
-            "sequences": sequences,
-        }
+        return SupernovaDatasetEntry(
+            {
+                "object_id": int(item["object_id"]),
+                "label": torch.tensor(item["label"], dtype=torch.long),
+                "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
+                "sequences": sequences,
+            }
+        )
