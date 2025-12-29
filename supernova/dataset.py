@@ -69,6 +69,7 @@ class DatasetProcessor:
         self._add_metadata_features()
         self._normalize_time_series()
         self._normalize_metadata()
+        self._convert_to_float()
 
         return [
             self._get_single_item(obj_id)
@@ -300,6 +301,10 @@ class DatasetProcessor:
         with open(SCALER_DIR / "mwebv", "wb") as f:
             pickle.dump(mwebv_scaler, f)
         self.metadata = meta
+
+    def _convert_to_float(self):
+        """All columns must be float64 for torch compatibility."""
+        self.metadata = self.metadata.astype(np.float64)
 
 
 class SupernovaDatasetEntry(TypedDict):
