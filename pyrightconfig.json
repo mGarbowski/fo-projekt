@@ -1,5 +1,6 @@
 {
   "reportExplicitAny": false,
   "reportImplicitOverride": false,
-  "reportUninitializedInstanceVariable": false
+  "reportUninitializedInstanceVariable": false,
+  "reportInvalidCast": false
 }
