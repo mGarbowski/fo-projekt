@@ -3,42 +3,79 @@
 Include both raw and processed data.
 """
 
-from typing import Any, Literal
 import pickle
+from pathlib import Path
+from typing import Any, Literal, TypedDict, final
 
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+
+from supernova.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, SCALER_DIR
 
 N_BANDS = 6
 
 DatasetItem = dict[str, Any]
 
 
-# TODO include new features
-# TODO drop unnecessary features
-# TODO normalize
-# TODO handle missing data
+@final
 class DatasetProcessor:
     """Process the raw csv files into a format suitable for loading into a torch Dataset.
 
     Groups data by object id, groups sequence entries by passband, sorted by time.
     """
 
-    def __init__(self, metadata_path: str, lightcurves_path: str, output_path: str):
+    metadata_path: Path
+    lightcurves_path: Path
+    output_path: Path
+    metadata: pd.DataFrame
+    labels: pd.DataFrame
+    lightcurves: pd.DataFrame
+    overwrite: bool = True
+
+    def __init__(
+        self,
+        metadata_path: Path,
+        lightcurves_path: Path,
+        output_path: Path,
+        overwrite: bool = True,
+    ):
+        self.overwrite = overwrite
         self.metadata_path = metadata_path
         self.lightcurves_path = lightcurves_path
         self.output_path = output_path
 
     def process(self) -> list[DatasetItem]:
-        """Process the raw data into"""
+        if self.output_path.exists():
+            if self.overwrite:
+                print("Overwriting existing processed dataset file.")
+            else:
+                print("Processed dataset file already exists on disk. Loading it.")
+                return self.load_from_file(self.output_path)
+        else:
+            print("Processed dataset not found on disk, processing...")
+
         self._load_raw_data()
         self._extract_labels_from_metadata()
         self._remap_labels()
+        self._drop_unnecessary_features()
+        self._fix_missing_data()
+        self._add_time_series_features()
+        self._add_metadata_features()
+        self._normalize_time_series()
+        self._normalize_metadata()
 
-        return [self._get_single_item(obj_id) for obj_id in self._get_all_object_ids()]
+        return [
+            self._get_single_item(obj_id)
+            for obj_id in tqdm(
+                self._get_all_object_ids(), "Saving processed dataset to file..."
+            )
+        ]
 
     def save_to_file(self, data: list[DatasetItem]):
         """Save processed data to output file."""
@@ -47,7 +84,7 @@ class DatasetProcessor:
             pickle.dump(data, out_file)
 
     @staticmethod
-    def load_from_file(path: str) -> list[DatasetItem]:
+    def load_from_file(path: Path) -> list[DatasetItem]:
         """Load processed data from output file."""
 
         with open(path, "rb") as in_file:
@@ -89,7 +126,16 @@ class DatasetProcessor:
             & (lightcurves["passband"] == passband)
         ].copy()
         seq.sort_values(by="mjd", inplace=True)
-        seq = seq[["mjd", "flux", "flux_err", "detected"]]
+        seq = seq[
+            [
+                "delta_t",
+                "delta_t_cumsum",
+                "flux_norm",
+                "flux_err_norm",
+                "snr",
+                "detected",
+            ]
+        ]
         return seq.values
 
     def _get_metadata(self, object_id: int) -> np.ndarray:
@@ -120,8 +166,152 @@ class DatasetProcessor:
             "lengths": lengths,
         }
 
+    def _drop_unnecessary_features(self):
+        self.metadata.drop(
+            columns=[
+                "ra",
+                "decl",
+                "gal_l",
+                "gal_b",
+                "hostgal_photoz",
+                "hostgal_photoz_err",
+            ],
+            inplace=True,
+        )
 
-class SupernovaDataset(Dataset):
+    def _fix_missing_data(self):
+        """Flag extragalactic objects and fill missing distance modulus values with 0."""
+        self.metadata["is_extragalactic"] = self.metadata["distmod"].isnull()
+        self.metadata["distmod"] = self.metadata["distmod"].fillna(0)
+
+    def _add_time_series_features(self):
+        """Add features:
+        * delta_t (scaled to account for time dilation)
+        * cumulative delta_t
+        * signal to noise ratio
+        """
+        # add delta_t
+        seqs = self.lightcurves
+        seqs.sort_values(["object_id", "passband", "mjd"], inplace=True)
+        seqs["delta_t"] = (
+            seqs.groupby(["object_id", "passband"])["mjd"].diff().fillna(0.0)
+        )
+        # scale delta_t by (1 + z)
+        seqs_merged = seqs.merge(
+            self.metadata[["hostgal_specz"]],
+            left_on="object_id",
+            right_index=True,
+            how="left",
+        )
+        seqs["delta_t"] /= 1.0 + seqs_merged["hostgal_specz"]
+
+        # delta_t_cumsum
+        seqs["delta_t_cumsum"] = seqs.groupby(["object_id", "passband"])[
+            "delta_t"
+        ].cumsum()
+
+        # snr
+        seqs["snr"] = seqs["flux"].abs() / seqs["flux_err"]
+        self.lightcurves = seqs
+
+    def _add_metadata_features(self):
+        """Add metadata features:
+        * number of observations
+        * number of detections
+        * span of observations
+        * max snr per band
+        * mean flux per band"""
+        meta, seqs = self.metadata, self.lightcurves
+        n_obs = seqs.groupby("object_id").size().rename("n_obs")
+        meta = meta.merge(n_obs, on="object_id", how="left")
+
+        n_detected = seqs.groupby("object_id")["detected"].sum().rename("n_detections")
+        meta = meta.merge(n_detected, on="object_id", how="left")
+
+        t_span = (
+            seqs.groupby("object_id")["mjd"]
+            .agg(lambda vals: vals.max() - vals.min())
+            .rename("t_span")
+        )
+        meta = meta.merge(t_span, on="object_id", how="left")
+
+        max_snr_wide = (
+            seqs.groupby(["object_id", "passband"])["snr"]
+            .max()
+            .unstack("passband")
+            .add_prefix("max_snr_")
+            .fillna(0.0)
+            .reset_index()
+        )
+        meta = meta.merge(max_snr_wide, how="left", on="object_id")
+
+        mean_flux_wide = (
+            seqs.groupby(["object_id", "passband"])["flux"]
+            .mean()
+            .unstack("passband")
+            .add_prefix("mean_flux_")
+            .fillna(0.0)
+            .reset_index()
+        )
+        meta = meta.merge(mean_flux_wide, how="left", on="object_id")
+        self.metadata = meta.set_index("object_id")
+
+    def _normalize_time_series(self):
+        seqs = self.lightcurves
+        scale = (
+            seqs.assign(abs_flux=seqs["flux"].abs())
+            .groupby(["object_id", "passband"])["abs_flux"]
+            .mean()
+            .rename("flux_scale")
+            .replace(0.0, 1.0)
+        )
+
+        seqs = seqs.merge(scale, on=["object_id", "passband"], how="left")
+        seqs["flux_norm"] = seqs["flux"] / seqs["flux_scale"]
+        seqs["flux_err_norm"] = seqs["flux_err"] / seqs["flux_scale"]
+        seqs = seqs.drop(columns=["flux_scale"])
+
+        # drop denormalized columns
+        self.lightcurves = seqs.drop(columns=["flux", "flux_err"])
+
+    def _normalize_metadata(self):
+        """Normalize metadata and dump scalers to files"""
+        meta = self.metadata
+
+        # standard scaling
+        for col in [
+            "hostgal_specz",
+            "distmod",
+            *(f"max_snr_{i}" for i in range(N_BANDS)),
+        ]:
+            scaler = StandardScaler()
+            meta[col] = scaler.fit_transform(meta[[col]])
+            with open(SCALER_DIR / col, "wb") as f:
+                pickle.dump(scaler, f)
+
+        # log1p, then standardscaler
+        mwebv_scaler = Pipeline(
+            [
+                ("log1p", FunctionTransformer(np.log1p, validate=False)),
+                ("scaler", StandardScaler()),
+            ]
+        )
+        meta["mwebv"] = mwebv_scaler.fit_transform(meta[["mwebv"]])
+        with open(SCALER_DIR / "mwebv", "wb") as f:
+            pickle.dump(mwebv_scaler, f)
+        self.metadata = meta
+
+
+class SupernovaDatasetEntry(TypedDict):
+    object_id: int
+    label: torch.Tensor
+    metadata: torch.Tensor
+    sequences: dict[int, torch.Tensor]
+    lengths: dict[int, torch.Tensor]
+
+
+@final
+class SupernovaDataset(Dataset[SupernovaDatasetEntry]):
     """Torch Dataset for Supernova data."""
 
     def __init__(self, dataset_path: str):
@@ -130,7 +320,7 @@ class SupernovaDataset(Dataset):
     def __len__(self) -> int:
         return len(self._data)
 
-    def __getitem__(self, idx: int) -> DatasetItem:
+    def __getitem__(self, idx: int):
         item = self._data[idx]
 
         sequences = {
@@ -143,13 +333,15 @@ class SupernovaDataset(Dataset):
             for band_id, length in item["lengths"].items()
         }
 
-        return {
-            "object_id": int(item["object_id"]),
-            "label": torch.tensor(item["label"], dtype=torch.long),
-            "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
-            "sequences": sequences,
-            "lengths": lengths,
-        }
+        return SupernovaDatasetEntry(
+            {
+                "object_id": int(item["object_id"]),
+                "label": torch.tensor(item["label"], dtype=torch.long),
+                "metadata": torch.tensor(item["metadata"], dtype=torch.float32),
+                "sequences": sequences,
+                "lengths": lengths,
+            }
+        )
 
 
 def supernova_collate_fn(batch):
@@ -214,10 +406,10 @@ def get_dataset_split(
 
 
 def get_data_loaders(
-    datasets: dict[str, Dataset],
+    datasets: dict[str, SupernovaDataset],
     batch_size: int,
     num_workers: int = 4,
-) -> dict[SplitName, DataLoader]:
+) -> dict[SplitName, DataLoader[SupernovaDatasetEntry]]:
     train_loader = DataLoader(
         datasets["train"],
         batch_size=batch_size,
@@ -247,3 +439,13 @@ def get_data_loaders(
         "val": val_loader,
         "test": test_loader,
     }
+
+
+if __name__ == "__main__":
+    processor = DatasetProcessor(
+        metadata_path=RAW_DATA_DIR / "training_set_metadata.csv",
+        lightcurves_path=RAW_DATA_DIR / "training_set.csv",
+        output_path=PROCESSED_DATA_DIR / "training_set.pkl",
+    )
+    dataset = processor.process()
+    processor.save_to_file(dataset)
