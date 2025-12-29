@@ -8,4 +8,7 @@ check:
 
 # Process the raw data into a dataset suitable for training
 process-data:
-    uv run python -m supernova.dataset
+    uv run -m supernova.dataset
+
+sweep:
+    uv run -m supernova.sweep
