@@ -15,6 +15,7 @@ dependencies = [
     "scikit-learn-stubs>=0.0.3",
     "torch==2.7.1+cu118",
     "tqdm>=4.66.5",
+    "wandb>=0.23.1",
 ]
 
 
