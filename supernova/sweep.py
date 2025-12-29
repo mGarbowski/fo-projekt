@@ -1,10 +1,11 @@
 import os
 from typing import TypedDict, cast
 
-import wandb
+import yaml
 from lightning.pytorch.loggers import WandbLogger
 
-from supernova.config import PROCESSED_DATA_DIR
+import wandb
+from supernova.config import PROCESSED_DATA_DIR, SWEEP_CONFIG_FILE
 from supernova.dataset import get_data_loaders, get_dataset_split
 from supernova.modeling.model import SupernovaClassifierV1, SupernovaClassifierV1Config
 from supernova.modeling.train import SupernovaTraining, get_trainer
@@ -37,7 +38,7 @@ class SweepConfig(TypedDict):
     batch_size: int
 
 
-def main():
+def runner():
     with wandb.init(project=PROJECT_NAME) as run:
         config = cast(SweepConfig, run.config)
 
@@ -71,11 +72,22 @@ def main():
         )
 
         dataset_split = get_dataset_split(DATASET_PATH, VAL_SPLIT, TEST_SPLIT)
-
-        train_loader, val_loader = get_data_loaders(dataset_split, config["batch_size"])
+        loaders = get_data_loaders(dataset_split, config["batch_size"])
+        train_loader, val_loader = loaders["train"], loaders["val"]
 
         trainer.fit(
             training_module,
             train_dataloaders=train_loader,
             val_dataloaders=val_loader,
         )
+
+
+if __name__ == "__main__":
+    with open(SWEEP_CONFIG_FILE, "r") as f:
+        cfg = cast(SweepConfig, yaml.safe_load(f))
+
+    sweep_id = wandb.sweep(
+        sweep=cfg,  # pyright: ignore[reportArgumentType]
+        project=PROJECT_NAME,
+    )
+    wandb.agent(sweep_id, count=512, function=runner)
