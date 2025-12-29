@@ -1,14 +1,23 @@
 """Model trainer module"""
 
+from typing import final
+
 from lightning import LightningModule, Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
+from lightning.pytorch.loggers import Logger
 from torch import nn
 from torch.optim import Adam
 
+from supernova.modeling.model import SupernovaClassifierV1
 
-# TODO parametrize more hyperparams
+
+@final
 class SupernovaTraining(LightningModule):
-    def __init__(self, model, learning_rate=1e-3):
+    def __init__(
+        self,
+        model: SupernovaClassifierV1,
+        learning_rate: float = 1e-3,
+    ):
         super().__init__()
         self.save_hyperparameters(ignore=["model"])
 
@@ -44,7 +53,9 @@ class SupernovaTraining(LightningModule):
         return Adam(self.parameters(), lr=self.hparams.learning_rate)
 
 
-def get_trainer(epochs: int, checkpoint_dir: str, early_stop_patience: int) -> Trainer:
+def get_trainer(
+    epochs: int, checkpoint_dir: str, early_stop_patience: int, logger: Logger
+) -> Trainer:
     checkpoint_callback = ModelCheckpoint(
         monitor="val_acc",
         dirpath=checkpoint_dir,
@@ -63,6 +74,7 @@ def get_trainer(epochs: int, checkpoint_dir: str, early_stop_patience: int) -> T
         accelerator="auto",
         devices=1,
         log_every_n_steps=1,
+        logger=logger,
     )
 
     return trainer
