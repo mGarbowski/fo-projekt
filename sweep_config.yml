@@ -10,7 +10,7 @@ parameters:
     max: 3e-3
 
   metadata_num_hidden_layers:
-    values: [1, 2, 3]
+    values: [1, 2, 3, 4, 5]
 
   metadata_hidden_size:
     values: [64, 128, 256]
@@ -19,7 +19,7 @@ parameters:
     values: [32, 64, 128]
 
   lightcurve_num_hidden_layers:
-    values: [1, 2]
+    values: [1, 2, 3, 4, 5]
 
   lightcurve_hidden_size:
     values: [64, 128, 256]
@@ -28,7 +28,7 @@ parameters:
     values: [128, 256, 512]
 
   classifier_num_hidden_layers:
-    values: [1, 2, 3]
+    values: [1, 2, 3, 4, 5]
 
   dropout:
     distribution: uniform
@@ -36,10 +36,10 @@ parameters:
     max: 0.4
 
   epochs:
-    values: [20, 30, 40]
+    value: 100
 
   early_stop_patience:
-    values: [5, 8, 10]
+    value: 10
 
   batch_size:
     values: [32, 64, 128]
