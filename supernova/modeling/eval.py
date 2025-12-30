@@ -15,7 +15,7 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 
-from supernova.config import PROCESSED_TRAINING_SET_FILE
+from supernova.config import PROCESSED_TRAINING_SET_FILE, REVERSE_LABEL_MAPPING
 from supernova.dataset import get_dataset_split, get_data_loaders
 from supernova.modeling.model import SupernovaClassifierV1
 from supernova.sweep import VAL_SPLIT, TEST_SPLIT
@@ -72,7 +72,11 @@ class EvaluationResults:
     @classmethod
     def from_predictions(cls, predicted_labels: np.ndarray, real_labels: np.ndarray):
         cm = confusion_matrix(real_labels, predicted_labels)
-        report = classification_report(real_labels, predicted_labels)
+        report = classification_report(
+            real_labels,
+            predicted_labels,
+            target_names=[f"Klasa {lbl}" for lbl in REVERSE_LABEL_MAPPING],
+        )
 
         precision_micro, recall_micro, f1_micro, _ = precision_recall_fscore_support(
             real_labels, predicted_labels, average="micro"
