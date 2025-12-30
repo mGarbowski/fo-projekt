@@ -8,7 +8,7 @@ check:
 
 # Process the raw data into a dataset suitable for training
 process-data:
-    uv run -m supernova.dataset
+    uv run -m supernova.preprocessing
 
 # Run weights and biases sweep
 sweep:
@@ -17,3 +17,7 @@ sweep:
 # Run all tests
 test:
     uv run pytest
+
+# Evaluate the model
+eval CHECKPOINT *ARGS:
+    uv run -m supernova.modeling.eval {{ CHECKPOINT }} {{ ARGS }}
