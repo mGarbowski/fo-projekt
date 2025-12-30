@@ -8,7 +8,7 @@ check:
 
 # Process the raw data into a dataset suitable for training
 process-data:
-    uv run -m supernova.dataset
+    uv run -m supernova.preprocessing
 
 # Run weights and biases sweep
 sweep:

@@ -1,15 +1,15 @@
 import torch
 
-from supernova.dataset import get_dataset_split, N_BANDS
-from supernova.sweep import DATASET_PATH
+from supernova.dataset import get_dataset_split
+from supernova.config import N_BANDS, PROCESSED_TRAINING_SET_FILE
 
 
 def test_dataset_split_is_deterministic():
     val_split = 0.15
     test_split = 0.15
 
-    split_1 = get_dataset_split(DATASET_PATH, val_split, test_split)
-    split_2 = get_dataset_split(DATASET_PATH, val_split, test_split)
+    split_1 = get_dataset_split(PROCESSED_TRAINING_SET_FILE, val_split, test_split)
+    split_2 = get_dataset_split(PROCESSED_TRAINING_SET_FILE, val_split, test_split)
 
     for split in ["train", "val", "test"]:
         item_1 = split_1[split][0]

@@ -5,16 +5,20 @@ import yaml
 from lightning.pytorch.loggers import WandbLogger
 
 import wandb
-from supernova.config import PROCESSED_DATA_DIR, SWEEP_CONFIG_FILE
+from supernova.config import (
+    SWEEP_CONFIG_FILE,
+    PROCESSED_TRAINING_SET_FILE,
+    METADATA_INPUT_SIZE,
+    LIGHTCURVE_INPUT_SIZE,
+    NUM_CLASSES,
+    VAL_SPLIT,
+    TEST_SPLIT,
+)
 from supernova.dataset import get_data_loaders, get_dataset_split
-from supernova.modeling.model import SupernovaClassifierV1, SupernovaClassifierV1Config
+from supernova.modeling.model import SupernovaClassifierV1Config
 from supernova.modeling.train import SupernovaTraining, get_trainer
 
-METADATA_INPUT_SIZE = 20
-LIGHTCURVE_INPUT_SIZE = 6
-NUM_CLASSES = 14
-VAL_SPLIT, TEST_SPLIT = 0.15, 0.15
-DATASET_PATH = PROCESSED_DATA_DIR / "training_set.pkl"
+
 PROJECT_NAME = "supernova"
 
 
@@ -70,7 +74,9 @@ def runner():
             logger=WandbLogger(project=PROJECT_NAME),
         )
 
-        dataset_split = get_dataset_split(DATASET_PATH, VAL_SPLIT, TEST_SPLIT)
+        dataset_split = get_dataset_split(
+            PROCESSED_TRAINING_SET_FILE, VAL_SPLIT, TEST_SPLIT
+        )
         loaders = get_data_loaders(dataset_split, config["batch_size"])
         train_loader, val_loader = loaders["train"], loaders["val"]
 

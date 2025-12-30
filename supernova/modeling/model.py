@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from dataclasses import dataclass
 
-from supernova.dataset import N_BANDS
+from supernova.config import N_BANDS
 
 
 @dataclass

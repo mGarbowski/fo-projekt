@@ -15,9 +15,10 @@ from sklearn.metrics import (
 )
 from tqdm import tqdm
 
+from supernova.config import PROCESSED_TRAINING_SET_FILE
 from supernova.dataset import get_dataset_split, get_data_loaders
 from supernova.modeling.model import SupernovaClassifierV1
-from supernova.sweep import DATASET_PATH, VAL_SPLIT, TEST_SPLIT
+from supernova.sweep import VAL_SPLIT, TEST_SPLIT
 
 
 def load_model_from_checkpoint(checkpoint_path: Path):
@@ -196,7 +197,7 @@ def main():
     print("Model loaded successfully.")
 
     print("Loading test dataset...")
-    datasets = get_dataset_split(DATASET_PATH, VAL_SPLIT, TEST_SPLIT)
+    datasets = get_dataset_split(PROCESSED_TRAINING_SET_FILE, VAL_SPLIT, TEST_SPLIT)
     loaders = get_data_loaders(datasets, batch_size=32)
     test_loader = loaders["test"]
     print("Test dataset loaded.")
