@@ -10,5 +10,10 @@ check:
 process-data:
     uv run -m supernova.dataset
 
+# Run weights and biases sweep
 sweep:
     uv run -m supernova.sweep
+
+# Run all tests
+test:
+    uv run pytest
