@@ -8,20 +8,20 @@ from lightning.pytorch.loggers import Logger
 from torch import nn
 from torch.optim import Adam
 
-from supernova.modeling.model import SupernovaClassifierV1
+from supernova.modeling.model import SupernovaClassifierV1, SupernovaClassifierV1Config
 
 
 @final
 class SupernovaTraining(LightningModule):
     def __init__(
         self,
-        model: SupernovaClassifierV1,
+        model_config: SupernovaClassifierV1Config,
         learning_rate: float = 1e-3,
     ):
         super().__init__()
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters()
 
-        self.model = model
+        self.model = SupernovaClassifierV1(model_config)
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, metadata, sequences, lengths):

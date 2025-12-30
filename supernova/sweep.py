@@ -56,9 +56,8 @@ def runner():
             dropout=config["dropout"],
         )
 
-        model = SupernovaClassifierV1(model_config)
         training_module = SupernovaTraining(
-            model=model, learning_rate=config["learning_rate"]
+            model_config=model_config, learning_rate=config["learning_rate"]
         )
 
         checkpoint_dir = os.path.join(run.dir, "checkpoints")
