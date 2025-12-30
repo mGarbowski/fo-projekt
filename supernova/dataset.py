@@ -13,7 +13,7 @@ import torch
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, StandardScaler
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm import tqdm
 
 from supernova.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, SCALER_DIR
@@ -319,7 +319,7 @@ class SupernovaDatasetEntry(TypedDict):
 class SupernovaDataset(Dataset[SupernovaDatasetEntry]):
     """Torch Dataset for Supernova data."""
 
-    def __init__(self, dataset_path: str):
+    def __init__(self, dataset_path: Path):
         self._data = DatasetProcessor.load_from_file(dataset_path)
 
     def __len__(self) -> int:
@@ -377,14 +377,15 @@ def supernova_collate_fn(batch):
 
 
 SplitName = Literal["train", "val", "test"]
+SupernovaDatasetSplit = dict[SplitName, Subset[SupernovaDatasetEntry]]
 
 
 def get_dataset_split(
-    dataset_path: str,
+    dataset_path: Path,
     val_split: float,
     test_split: float,
     random_seed: int = 42,
-) -> dict[SplitName, Dataset]:
+) -> SupernovaDatasetSplit:
     assert 0 < val_split < 1
     assert 0 < test_split < 1
     assert val_split + test_split < 1
@@ -411,7 +412,7 @@ def get_dataset_split(
 
 
 def get_data_loaders(
-    datasets: dict[str, SupernovaDataset],
+    datasets: SupernovaDatasetSplit,
     batch_size: int,
     num_workers: int = 4,
 ) -> dict[SplitName, DataLoader[SupernovaDatasetEntry]]:

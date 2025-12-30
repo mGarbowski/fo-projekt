@@ -1,0 +1,45 @@
+method: random
+metric:
+  name: val_loss
+  goal: minimize
+
+parameters:
+  learning_rate:
+    distribution: log_uniform_values
+    min: 1e-4
+    max: 3e-3
+
+  metadata_num_hidden_layers:
+    values: [1, 2, 3, 4, 5]
+
+  metadata_hidden_size:
+    values: [64, 128, 256]
+
+  metadata_output_size:
+    values: [32, 64, 128]
+
+  lightcurve_num_hidden_layers:
+    values: [1, 2, 3, 4, 5]
+
+  lightcurve_hidden_size:
+    values: [64, 128, 256]
+
+  classifier_hidden_size:
+    values: [128, 256, 512]
+
+  classifier_num_hidden_layers:
+    values: [1, 2, 3, 4, 5]
+
+  dropout:
+    distribution: uniform
+    min: 0.0
+    max: 0.4
+
+  epochs:
+    value: 100
+
+  early_stop_patience:
+    value: 10
+
+  batch_size:
+    values: [32, 64, 128]
