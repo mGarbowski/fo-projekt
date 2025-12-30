@@ -17,3 +17,7 @@ sweep:
 # Run all tests
 test:
     uv run pytest
+
+# Evaluate the model
+eval CHECKPOINT *ARGS:
+    uv run -m supernova.modeling.eval {{ CHECKPOINT }} {{ ARGS }}
