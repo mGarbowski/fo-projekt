@@ -4,3 +4,4 @@
 models/checkpoints
 notebooks/.ipynb_checkpoints
 **/__pycache__
+wandb
