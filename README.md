@@ -2,6 +2,8 @@
 
 Projekt semestralny na przedmiot Fizyka Ogólna (2025Z).
 
+[Sprawozdanie](./reports/report.pdf)
+
 ## Autorzy
 
 * Maksym Bieńkowski
@@ -9,7 +11,7 @@ Projekt semestralny na przedmiot Fizyka Ogólna (2025Z).
 
 ## Opis
 
-W dostępnym zbiorze danych jest niewielki zbiór treningowy z etykietami i ogromny zbiór testowy bez etykiek.
+W dostępnym zbiorze danych jest niewielki zbiór treningowy z etykietami i ogromny zbiór testowy bez etykiet.
 Posłużymy się zbiorem treningowym, podzielimy go na zbiór treningowy i walidacyjny.
 Wytrenujemy klasyfikator i będziemy oceniać dokładność klasyfikacji na zbiorze walidacyjnym.
 Będziemy wyznaczać dokładność przy mikro-uśrednianiu i makro-uśrednianiu.
@@ -17,7 +19,7 @@ Będziemy wyznaczać dokładność przy mikro-uśrednianiu i makro-uśrednianiu.
 Istnieje też zbiór testowy z udostępnionymi etykietami.
 Jak starczy czasu to ocenimy na nim nasz model (ale to zobaczymy, bo zbiór jest ogromny).
 
-### Pomysły na rozwiązanie
+### Rozwiązanie
 
 Testujemy podejścia znane z zajęć i w granicach możliwości co do zasobów obliczeniowych (nie trenujemy transformera).
 
@@ -25,15 +27,21 @@ Testujemy podejścia znane z zajęć i w granicach możliwości co do zasobów o
 * Model oparty na sieciach rekurencyjnych (LSTM)
   * po 1 sieci na każde z 6 pasem
   * połączenie wyjść sieci dla każdego pasma, metadanych i wyznaczonych cech
+
+![Diagram architektury modelu](./reports/assets/architecture-diagram.drawio.svg)
+
 ### Inżynieria cech
-* Do przeanalizowania które atrybuty z metadanych bierzemy do modelu
-* Wyznaczenie cech per szereg czasowy
-  * średnia
-  * odchylenie
-  * jakieś inne, może maksymalna częstotliwość z FFT
+* Odrzucenie nieprzydatnych atrybutów
+* Normalizacja
+* Przekształcenie znaczników czasowych
+* Wyznaczenie parametrów makro dla sekwencji pomiarowych
 
 ## Instrukcja uruchomienia
-TODO
+
+* Wymagana instalacja programów `just` i `uv`
+* Repozytorium zawiera surowe i przetworzone dane.
+* Listę dostępnych skryptów można wyświetlić komendą `just -l`.
+* Notatniki poświęcone eksploracji danych, inżynierii cech i modelowaniu znajdują się w katalogu `notebooks/`.
 
 ## Źródła
 * [Konkurs PLAsTiCC na Kaggle (ze zbiorem danych)](https://www.kaggle.com/competitions/PLAsTiCC-2018/data)
