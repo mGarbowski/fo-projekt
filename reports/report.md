@@ -34,13 +34,14 @@ Zestaw podzielony był na dwie części - szeregi czasowe zawierające dane doty
 - `flux_err`: niepewność pomiaru strumienia  
 - `detected`: flaga logiczna wykrycia istotnego statystycznie ($\le 3\sigma$)
 
-### Rozkład klas
-
-![Histogram rozkładu klas](./assets/class_distribution.png)
-
 ### Uwagi
 - obserwacje w różnych filtrach nie były wykonywane jednocześnie  
 - obserwacje nie były wykonywane w równomiernych odstępach 
+
+### Rozkład klas
+
+![Histogram rozkładu klas](reports/assets/class_distribution.png){height=400px}
+
 
 ## Architektura modelu
 
@@ -52,12 +53,12 @@ która zwraca logity - nieznormalizowane prawdopodobieństwa przynależności do
 
 Mając do klasyfikacji dane będące szeregami czasowymi, zdecydowaliśmy się użyć sieci LSTM (Hochreiter, 1997) ze względu na ich wysoką skuteczność i niską liczbę parametrów w porównaniu do bardziej złożonych rozwiązań, np. transformerów.
 
-![diagram architektury modelu](./assets/architecture-diagram.drawio.svg)
+![diagram architektury modelu](reports/assets/architecture-diagram.drawio.svg)
 
 ## Przetwarzanie danych
 Przed wytrenowaniem i ewaluacją modelu przetworzyliśmy dane, aby wycisnąć z nich jak najwięcej istotnych informacji. 
 
-### Metadane
+### Metadane - inżynieria cech
 Usunęliśmy niepotrzebne kolumny:
 
 * `ra`, `decl`, `gal_l` i `gal_b` - położenie obiektu na niebie nie powinno być skorelowane z jego typem, a dane pochodzą z symulacji. Istotna informacja o dystansie zawarta jest i tak w parametrze `distmod`.
@@ -65,24 +66,29 @@ Usunęliśmy niepotrzebne kolumny:
   * W nieetykietowanym zestawie testowym, na którym ewaluowano modele w oficjalnych zawodach, w większości pomiarów brakowało danych spektroskopowych, stąd włączenie danych fotometrycznych w zestaw. Na nasze potrzeby wystarczą więc dane spektroskopowe.
 
 Dodaliśmy nowe kolumny:
+
 * `n_obs` - łączna liczba obserwacji
 * `n_detections` - łączna liczba obserwacji, gdy obiekt był wykryty
 * `t_span` - łączny okres pomiaru, różnica czasu ostatniego i pierwszego pomiaru (w dniach)
 * `max_snr_{0-5}` - heurystyka maksymalnej jasności w danym pasmie zawierająca informację o błędzie pomiaru (signal to noise ratio)
 * `mean_flux_{0-5}` średnia wartość strumienia per pasmo we wszystkich pomiarach - uśredniona informacja o jasności
 
-#### Normalizacja
+### Normalizacja metadanych
+
 Na podstawie analizy rozkładów prawdopodobieństwa poszczególnych zmiennych stosowaliśmy w większości przypadków standardową normalizację $(x-\mu) / \sigma$. Jeśli rozkład zawierał dużo próbek o małych wartościach i długi, kilka rzędów większy ogon, stosowaliśmy transformację logarytmiczną $\mathrm{log1p}(x) = \log(1+x)$, aby uzyskać bardziej symetryczny rozkład do poddania normalizacji.
 
-### Szeregi czasowe
+### Szeregi czasowe - inżynieria cech
+
 Usunęliśmy kolumnę mjd - data w formacie bezwzględnym nie jest tu pomocna, w szczególności, jeśli dane testowe pochodzić będą z innego okresu, niż treningowe. Sieci LSTM powinny operować na względnych zmianach czasu w porównaniu do poprzedniego pomiaru.
 
 Dodaliśmy nowe kolumny:
+
 * `delta_t` - wspomniana względna zmiana czasu od ostatniego pomiaru, dla pierwszego pomiaru dla danego obiektu w danym paśmie równa 0
 * `delta_t_cumsum` - czas, który upłynął od pierwszego pomiaru obiektu w danym paśmie
 * `snr` - *signal to noise ratio* wyliczane jako `flux/flux_err` - korzystna informacja dla modelu opisująca pewność pomiaru
 
-#### Normalizacja
+### Normalizacja szeregów czasowych
+
 Normalizowane są wszystkie dane podawane do LSTMa - istotny jest w tym przypadku ich ogólny "kształt", a klasyfikator dostaje na wejście nieznormalizowane zagregowane dane z szeregów czasowych. Dla każdego ciągu obserwacji (per obiekt i pasmo) normalizowane są wartości `flux` i `flux_err` poprzez podzielenie przez medianę wartości bezwzględnej strumienia. Mediana zamiast wartości średniej sprawia, że zaszumione skoki nie wpływają na skalę uśredniania, a wartość bezwzględna nie zmienia znaku.
 
 ## Dobór hiperparametrów i trening

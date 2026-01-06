@@ -21,3 +21,6 @@ test:
 # Evaluate the model
 eval CHECKPOINT *ARGS:
     uv run -m supernova.modeling.eval {{ CHECKPOINT }} {{ ARGS }}
+
+build_report:
+    pandoc -o reports/report.pdf reports/report.md -V geometry:margin=0.5in -V lang=polish -f markdown+raw_tex -V graphics=true
